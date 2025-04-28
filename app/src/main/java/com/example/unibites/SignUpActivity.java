@@ -28,14 +28,14 @@ import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.auth.GoogleAuthProvider;
 
-public class LoginActivity extends AppCompatActivity {
+public class SignUpActivity extends AppCompatActivity {
 
-    private static final String TAG = "LoginActivity";
+    private static final String TAG = "SignUpActivity";
     private static final int RC_SIGN_IN = 9001;
 
-    private TextInputEditText editTextEmail, editTextPassword;
-    private MaterialButton buttonLogin, buttonGoogleSignIn;
-    private TextView textSignUp, textForgotPassword;
+    private TextInputEditText editTextEmail, editTextPassword, editTextConfirmPassword;
+    private MaterialButton buttonSignUp, buttonGoogleSignIn;
+    private TextView textLogin;
 
     private FirebaseAuth mAuth;
     private GoogleSignInClient mGoogleSignInClient;
@@ -43,7 +43,7 @@ public class LoginActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_login);
+        setContentView(R.layout.activity_signup);
 
         // Initialize Firebase Auth
         mAuth = FirebaseAuth.getInstance();
@@ -59,16 +59,16 @@ public class LoginActivity extends AppCompatActivity {
         // Initialize UI components
         editTextEmail = findViewById(R.id.edit_text_email);
         editTextPassword = findViewById(R.id.edit_text_password);
-        buttonLogin = findViewById(R.id.button_login);
+        editTextConfirmPassword = findViewById(R.id.edit_text_confirm_password);
+        buttonSignUp = findViewById(R.id.button_signup);
         buttonGoogleSignIn = findViewById(R.id.button_google_signin);
-        textSignUp = findViewById(R.id.text_signup);
-        textForgotPassword = findViewById(R.id.text_forgot_password);
+        textLogin = findViewById(R.id.text_login);
 
         // Set click listeners
-        buttonLogin.setOnClickListener(new View.OnClickListener() {
+        buttonSignUp.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                loginWithEmailPassword();
+                registerWithEmailPassword();
             }
         });
 
@@ -79,56 +79,19 @@ public class LoginActivity extends AppCompatActivity {
             }
         });
 
-        textSignUp.setOnClickListener(new View.OnClickListener() {
+        textLogin.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                // Navigate to SignUp Activity
-                Intent intent = new Intent(LoginActivity.this, SignUpActivity.class);
-                startActivity(intent);
-            }
-        });
-
-        textForgotPassword.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                // Handle password reset
-                if (TextUtils.isEmpty(editTextEmail.getText())) {
-                    Toast.makeText(LoginActivity.this, "Please enter your email first", Toast.LENGTH_SHORT).show();
-                    return;
-                }
-
-                String email = editTextEmail.getText().toString();
-                mAuth.sendPasswordResetEmail(email)
-                        .addOnCompleteListener(new OnCompleteListener<Void>() {
-                            @Override
-                            public void onComplete(@NonNull Task<Void> task) {
-                                if (task.isSuccessful()) {
-                                    Toast.makeText(LoginActivity.this,
-                                            "Password reset email sent", Toast.LENGTH_SHORT).show();
-                                } else {
-                                    Toast.makeText(LoginActivity.this,
-                                            "Failed to send reset email", Toast.LENGTH_SHORT).show();
-                                }
-                            }
-                        });
+                // Navigate back to login
+                finish();
             }
         });
     }
 
-    @Override
-    public void onStart() {
-        super.onStart();
-        // Check if user is signed in
-        FirebaseUser currentUser = mAuth.getCurrentUser();
-        if (currentUser != null) {
-            // User is already signed in, go to main activity
-            navigateToMainActivity();
-        }
-    }
-
-    private void loginWithEmailPassword() {
+    private void registerWithEmailPassword() {
         String email = editTextEmail.getText().toString().trim();
         String password = editTextPassword.getText().toString().trim();
+        String confirmPassword = editTextConfirmPassword.getText().toString().trim();
 
         // Validate inputs
         if (TextUtils.isEmpty(email)) {
@@ -143,24 +106,41 @@ public class LoginActivity extends AppCompatActivity {
             return;
         }
 
+        if (password.length() < 6) {
+            editTextPassword.setError("Password must be at least 6 characters");
+            editTextPassword.requestFocus();
+            return;
+        }
+
+        if (!password.equals(confirmPassword)) {
+            editTextConfirmPassword.setError("Passwords don't match");
+            editTextConfirmPassword.requestFocus();
+            return;
+        }
+
         // Show loading state if needed
 
-        // Attempt to sign in
-        mAuth.signInWithEmailAndPassword(email, password)
+        // Create user with email and password
+        mAuth.createUserWithEmailAndPassword(email, password)
                 .addOnCompleteListener(this, new OnCompleteListener<AuthResult>() {
                     @Override
                     public void onComplete(@NonNull Task<AuthResult> task) {
                         // Hide loading state if shown
 
                         if (task.isSuccessful()) {
-                            // Sign in success
-                            Log.d(TAG, "signInWithEmail:success");
+                            // Sign up success
+                            Log.d(TAG, "createUserWithEmail:success");
                             FirebaseUser user = mAuth.getCurrentUser();
+
+                            // You could add additional user information to Firestore/Realtime DB here
+
+                            Toast.makeText(SignUpActivity.this, "Account created successfully!",
+                                    Toast.LENGTH_SHORT).show();
                             navigateToMainActivity();
                         } else {
-                            // If sign in fails, display a message to the user
-                            Log.w(TAG, "signInWithEmail:failure", task.getException());
-                            Toast.makeText(LoginActivity.this, "Authentication failed: " +
+                            // If sign up fails, display a message to the user
+                            Log.w(TAG, "createUserWithEmail:failure", task.getException());
+                            Toast.makeText(SignUpActivity.this, "Registration failed: " +
                                     task.getException().getMessage(), Toast.LENGTH_SHORT).show();
                         }
                     }
@@ -176,7 +156,6 @@ public class LoginActivity extends AppCompatActivity {
     protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
 
-        // Result returned from launching the Intent from GoogleSignInApi.getSignInIntent(...);
         if (requestCode == RC_SIGN_IN) {
             Task<GoogleSignInAccount> task = GoogleSignIn.getSignedInAccountFromIntent(data);
             try {
@@ -203,11 +182,23 @@ public class LoginActivity extends AppCompatActivity {
                             // Sign in success
                             Log.d(TAG, "signInWithCredential:success");
                             FirebaseUser user = mAuth.getCurrentUser();
+
+                            // Check if this is a new user (first time sign in)
+                            boolean isNewUser = task.getResult().getAdditionalUserInfo().isNewUser();
+                            if (isNewUser) {
+                                // You could add additional user information to Firestore/Realtime DB here
+                                Toast.makeText(SignUpActivity.this, "Account created with Google!",
+                                        Toast.LENGTH_SHORT).show();
+                            } else {
+                                Toast.makeText(SignUpActivity.this, "Signed in with Google!",
+                                        Toast.LENGTH_SHORT).show();
+                            }
+
                             navigateToMainActivity();
                         } else {
                             // Sign in fails
                             Log.w(TAG, "signInWithCredential:failure", task.getException());
-                            Toast.makeText(LoginActivity.this, "Authentication failed: " +
+                            Toast.makeText(SignUpActivity.this, "Authentication failed: " +
                                     task.getException().getMessage(), Toast.LENGTH_SHORT).show();
                         }
                     }
@@ -215,7 +206,7 @@ public class LoginActivity extends AppCompatActivity {
     }
 
     private void navigateToMainActivity() {
-        Intent intent = new Intent(LoginActivity.this, MainActivity.class);
+        Intent intent = new Intent(SignUpActivity.this, MainActivity.class);
         intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
         startActivity(intent);
         finish();
