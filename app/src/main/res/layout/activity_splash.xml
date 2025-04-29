@@ -4,26 +4,14 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/white"
-    tools:context=".splash_activity">
+    android:background="@color/dark_brown_bg"
+    tools:context=".SplashActivity">
 
+    <ImageView
+        android:id="@+id/splash_logo"
+        android:layout_width="243dp"
+        android:layout_height="259dp"
+        android:layout_centerInParent="true"
+        android:src="@drawable/unilogo" />
 
-<ImageView
-android:id="@+id/splash_logo"
-android:layout_width="150dp"
-android:layout_height="150dp"
-android:layout_centerInParent="true"
-android:src="@mipmap/ic_launcher_round" />
-
-<TextView
-android:layout_width="wrap_content"
-android:layout_height="wrap_content"
-android:layout_below="@id/splash_logo"
-android:layout_centerHorizontal="true"
-android:layout_marginTop="16dp"
-android:text="Unibites"
-android:textColor="@color/white"
-android:textSize="24sp"
-android:textStyle="bold" />
-
-    </RelativeLayout>
+</RelativeLayout>
